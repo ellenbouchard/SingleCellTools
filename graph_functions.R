@@ -1,6 +1,5 @@
 # Author: Ellen Bouchard
 # Date Created: October 28 2024
-# Last Updated: October 28 2024
 
 # This file contains graphing functions for commonly used plots : 
 # Horizontal Heatmap
@@ -343,8 +342,8 @@ column_colorvector = NULL, row_colorvector = NULL, rasterize = NULL, pctassay = 
 )      
     
     
-    print(heatmap_obj)
-    print(lgd_list)
+    # print(heatmap_obj)
+    # print(lgd_list)
     return(draw(heatmap_obj, heatmap_legend_list = lgd_list))
 #     if (!is.null(pdfsavepath)) {
 #         pdf(pdfsavepath, width = , height = , bg = bg)
@@ -354,6 +353,8 @@ column_colorvector = NULL, row_colorvector = NULL, rasterize = NULL, pctassay = 
 #     return(heatmap_obj)
     
 }
+
+
 ## make_DA_graph
 ## Simple bar  graph function for differential abundance of two variables in a Seurat object
 # varX = the variable on the X axis
