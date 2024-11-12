@@ -230,6 +230,59 @@ filter_umi <- function(obj_list,
     return(obj_list)
 }
 
+# Function apply_doubletfinder
+# Function runs DoubletFinder on a list of Seurat objects
+# It is recommended that, if using DoubletFinder, to not remove a top percentile of cells by UMI count,
+    # Or at least assess results before removing a top percentile by UMI count
+# Remember, DoubletFinder works best on datasets of non-homogenous cell types 
+# Input: a list of Seurat objects
+# Output: a list of Seurat objects which have been filtered such that cells labeled as doublets by DoubletFinder have been removed
+# Arguments:
+    # object_list : list of Seurat objects
+    # nPCs : number of PCs to use, default 30
+    # pN : pN value to use when running DoubletFinder, default 0.25
+apply_doubletfinder <- function(object_list,
+                               nPCs = 30,
+                               pN = 0.25) {
+    require(DoubletFinder)
+    object_list <- lapply(object_list, function(object){
+        object_name <- object$orig.ident[[1]]
+        # DoubletFinder pipeline, no annotations
+        sweep.res <- paramSweep(object, PCs = 1:nPCs, sct = FALSE)
+        sweep.stats <- summarizeSweep(sweep.res, GT = FALSE)
+        bcmvn <- find.pK(sweep.stats)
+        pK.set <- unique(sweep.stats$pK)[2]
+        nExp_poi <- round(0.08*nrow(object@meta.data))
+        object <- doubletFinder(object, 
+                       PCs = 1:nPCs, 
+                       pN = pN, 
+                       pK = as.numeric(as.character(pK.set)),
+                       nExp = nExp_poi, 
+                       reuse.pANN = FALSE, 
+                       sct = FALSE)
+        # DoubletFinder gives a unqiue name to the classifications column in the metadata.
+        # For consistency, copy classifications to a new column with the name "DF.classifications"
+        object$DF.classifications <- object[[]][ncol(object[[]])] 
+        object_filt <- subset(object, DF.classifications == "Singlet")
+
+        # Print number of cells that were removed
+        n_cells_pre <- ncol(object)
+        n_cells_post <- ncol(object_filt)
+        n_cells_removed <- n_cells_pre - n_cells_post
+        print(object_name)
+        print("Number of cells, pre-filtering:")
+        print(n_cells_pre)
+        print("Number of cells, post-filtering:")
+        print(n_cells_post)
+        print("Number of cells removed:")
+        print(n_cells_removed)
+        return(object_filt)
+        })
+    return(object_list)
+}
+
+
+
 
 # Function QC_objects
 # Uses the above functions (add_pct_mt_rb, process_object, filter_mt, and filter_umi) 
@@ -328,58 +381,6 @@ QC_objects <- function(object_list,
     return(object_list)
     }
 
-
-# Function apply_doubletfinder
-# Function runs DoubletFinder on a list of Seurat objects
-# It is recommended that, if using DoubletFinder, to not remove a top percentile of cells by UMI count,
-    # Or at least assess results before removing a top percentile by UMI count
-# Remember, DoubletFinder works best on datasets of non-homogenous cell types 
-# Input: a list of Seurat objects
-# Output: a list of Seurat objects which have been filtered such that cells labeled as doublets by DoubletFinder have been removed
-# Arguments:
-    # object_list : list of Seurat objects
-    # nPCs : number of PCs to use, default 30
-    # pN : pN value to use when running DoubletFinder, default 0.25
-apply_doubletfinder <- function(object_list,
-                               nPCs = 30,
-                               pN = 0.25) {
-    require(DoubletFinder)
-    object_list <- lapply(object_list, function(object){
-        object_name <- object$orig.ident[[1]]
-        # DoubletFinder pipeline, no annotations
-        sweep.res <- paramSweep(object, PCs = 1:nPCs, sct = FALSE)
-        sweep.stats <- summarizeSweep(sweep.res, GT = FALSE, verbose = FALSE)
-        bcmvn <- find.pK(sweep.stats, verbose = FALSE)
-        pK.set <- unique(sweep.stats$pK)[2]
-        nExp_poi <- round(0.08*nrow(object@meta.data))
-        object <- doubletFinder(object, 
-                       PCs = 1:nPCs, 
-                       pN = pN, 
-                       pK = as.numeric(as.character(pK.set)),
-                       nExp = nExp_poi, 
-                       reuse.pANN = FALSE, 
-                       sct = FALSE,
-		       verbose = FALSE)
-        # DoubletFinder gives a unqiue name to the classifications column in the metadata.
-        # For consistency, copy classifications to a new column with the name "DF.classifications"
-        object$DF.classifications <- object[[]][ncol(object[[]])] 
-        object_filt <- subset(object, DF.classifications == "Singlet")
-
-        # Print number of cells that were removed
-        n_cells_pre <- ncol(object)
-        n_cells_post <- ncol(object_filt)
-        n_cells_removed <- n_cells_pre - n_cells_post
-        print(object_name)
-        print("Number of cells, pre-filtering:")
-        print(n_cells_pre)
-        print("Number of cells, post-filtering:")
-        print(n_cells_post)
-        print("Number of cells removed:")
-        print(n_cells_removed)
-        return(object_filt)
-        })
-    return(object_list)
-}
 
 
 
