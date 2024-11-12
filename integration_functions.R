@@ -1,7 +1,6 @@
 # Functions for integration and clustering
 # Author: Ellen Bouchard
 # Date Created: 11/12/2024
-# Last Updated: 11/12/2024 
 
 # Function remove_scale_data: 
 # Function to remove the scale.data layer from every object in a list
