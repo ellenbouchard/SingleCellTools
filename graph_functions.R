@@ -65,7 +65,7 @@ make_volcano = function(
         scale_color_manual(breaks = c("DOWN", "", "UP"),values=c(downcolor, midcolor, upcolor)) + 
         geom_point(size = 1) + 
         ggtitle(graph_title) +
-	theme(panel.grid = element_blank()) 
+	theme(panel.grid = element_blank(), legend.position = "none") 
     
         if (label_genes) {plot = plot + ggrepel::geom_text_repel(aes(label = name), color = labelcolor, max.overlaps = overlap_metric, nudge_y = 1)}
         if (label_specific_genes) {plot = plot + geom_text_repel(aes(label = name_specific), color = labelcolor, max.overlaps = overlap_metric_secondary)}
