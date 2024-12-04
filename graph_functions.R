@@ -29,7 +29,7 @@ make_volcano = function(
     require(Seurat)
     require(ggplot2)
     require(ggrepel)
-    if(!("gene" %in% colnames(de))) { print("Differential Expression Dataframe Must Have `gene` Column!")}
+    if(!("gene" %in% colnames(de))) { warning("Differential Expression Dataframe Must Have `gene` Column!")}
     
     de = subset(de,!(gene %in% remove_genes))
     
