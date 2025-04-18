@@ -1,5 +1,6 @@
 # Author: Ellen Bouchard
 # Date Created: October 28 2024
+# Last Updated: October 28 2024
 
 # This file contains graphing functions for commonly used plots : 
 # Horizontal Heatmap
@@ -29,7 +30,7 @@ make_volcano = function(
     require(Seurat)
     require(ggplot2)
     require(ggrepel)
-    if(!("gene" %in% colnames(de))) { warning("Differential Expression Dataframe Must Have `gene` Column!")}
+    if(!("gene" %in% colnames(de))) { print("Differential Expression Dataframe Must Have `gene` Column!")}
     
     de = subset(de,!(gene %in% remove_genes))
     
@@ -65,7 +66,7 @@ make_volcano = function(
         scale_color_manual(breaks = c("DOWN", "", "UP"),values=c(downcolor, midcolor, upcolor)) + 
         geom_point(size = 1) + 
         ggtitle(graph_title) +
-	theme(panel.grid = element_blank(), legend.position = "none") 
+	theme(panel.grid = element_blank()) 
     
         if (label_genes) {plot = plot + ggrepel::geom_text_repel(aes(label = name), color = labelcolor, max.overlaps = overlap_metric, nudge_y = 1)}
         if (label_specific_genes) {plot = plot + geom_text_repel(aes(label = name_specific), color = labelcolor, max.overlaps = overlap_metric_secondary)}
@@ -342,8 +343,8 @@ column_colorvector = NULL, row_colorvector = NULL, rasterize = NULL, pctassay = 
 )      
     
     
-    # print(heatmap_obj)
-    # print(lgd_list)
+    print(heatmap_obj)
+    print(lgd_list)
     return(draw(heatmap_obj, heatmap_legend_list = lgd_list))
 #     if (!is.null(pdfsavepath)) {
 #         pdf(pdfsavepath, width = , height = , bg = bg)
@@ -353,8 +354,6 @@ column_colorvector = NULL, row_colorvector = NULL, rasterize = NULL, pctassay = 
 #     return(heatmap_obj)
     
 }
-
-
 ## make_DA_graph
 ## Simple bar  graph function for differential abundance of two variables in a Seurat object
 # varX = the variable on the X axis
@@ -363,7 +362,15 @@ column_colorvector = NULL, row_colorvector = NULL, rasterize = NULL, pctassay = 
 # varX and varY must be names of columns in obj metadata
 # Returns ggplot2 bar chart
 
-make_DA_graph <- function(obj, varX, varY) {
+make_DA_graph <- function(obj, 
+                          varX, 
+                          varY,
+                          type = "number") {
+        
+    if (!type %in% c("normalized", "proportion", "number")) {
+        stop('Error: "type" must be one of: "number", "proportion" or "normalized" (for normalized proportion)')
+     }
+    
      X_Y_counts <- as.data.frame(table(obj@meta.data[[varX]], obj@meta.data[[varY]]))
      colnames(X_Y_counts) <- c(varX, varY, "nCells")
      varYdf <- as.data.frame(table(obj@meta.data[[varY]]))
@@ -374,11 +381,29 @@ make_DA_graph <- function(obj, varX, varY) {
     varX_sym <- sym(varX)
     varY_sym <- sym(varY)
 
-    plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = Normalized, fill = !!varY_sym)) +
-            geom_bar(position = "fill", stat = "identity") +
-            theme_minimal() +
-            labs(x = varX, y = "Normalized Proportion", fill = varY) +
-            theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+    if(type == "normalized") {
+        plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = Normalized, fill = !!varY_sym)) +
+        geom_bar(position = "fill", stat = "identity") +
+        theme_minimal() +
+        labs(x = varX, y = "Normalized Proportion", fill = varY) +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+        }
+
+       if(type == "proportion") {
+        plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = nCells, fill = !!varY_sym)) +
+        geom_bar(position = "fill", stat = "identity") +
+        theme_minimal() +
+        labs(x = varX, y = "Proportion of Cells", fill = varY) +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+        }
+
+    if(type == "number") {
+        plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = nCells, fill = !!varY_sym)) +
+        geom_bar(position = "stack", stat = "identity") +
+        theme_minimal() +
+        labs(x = varX, y = "Number of Cells", fill = varY) +
+        theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+        }
     
     return(plot)
 }
@@ -401,7 +426,15 @@ perform_chi_square_test <- function(a_count, b_count) {
 ## Shows which categories are statistically significant by chi-square test (FDR p value)
 ## ONLY WORKS IF varY HAS EXACTLY TWO LEVELS, throws error if not
 
-make_DA_graph_sig <- function(obj, varX, varY, pval_threshold = 0.01) {
+make_DA_graph_sig <- function(obj, 
+                              varX, 
+                              varY, 
+                              pval_threshold = 0.01,
+                              type = "fill") {
+    if (!type %in% c("fill", "stack")) {
+    stop('Error: "type" must be either "fill" (for proportion) or "stack" (for number).')
+   }
+    
     varY_unique <- unique(obj@meta.data[[varY]])
     if(length(varY_unique) != 2) {
         stop("Error: VarY must have exactly two levels!")
@@ -427,24 +460,36 @@ make_DA_graph_sig <- function(obj, varX, varY, pval_threshold = 0.01) {
         rowwise() %>%
         mutate(p_value = perform_chi_square_test(!!varY1, !!varY2)) %>%
         mutate(fdr_p_value = p.adjust(p_value, method = "fdr"))
-               
+
     sig_filtered <- X_Y_counts_wide %>%
                     filter(fdr_p_value < pval_threshold)
 
     X_Y_counts$Significant <- X_Y_counts[[varX]] %in% sig_filtered[[varX]]
 
-    
 
-    plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = Normalized, fill = !!varY_sym)) +
+    if(type == "fill"){
+            plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = Normalized, fill = !!varY_sym)) +
             geom_bar(position = "fill", stat = "identity") +
             theme_minimal() +
             labs(x = varX, y = "Normalized Proportion", fill = varY) +
             theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
            geom_text(
-                data = subset(X_Y_counts, Significant == TRUE),
-                aes(label = "*", y = 1.01), # Adding stars above the bars
+                 data = subset(X_Y_counts, Significant == TRUE),
+                aes(x = !!varX_sym, label = "*"), # Explicitly map x and label
+                y = 1.0, # Specify y position outside aes
                 size = 10,
-                color = "black")
+                color = "black"
+          )
+        }
+
+    if(type == "stack") {
+            plot <- ggplot(X_Y_counts, aes(x = !!varX_sym, y = nCells, fill = !!varY_sym)) +
+            geom_bar(position = "stack", stat = "identity") +
+            theme_minimal() +
+            labs(x = varX, y = "Number of Cells", fill = varY) +
+            theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+        }
+
     
     return(plot)
 } 
@@ -478,10 +523,13 @@ GOterm_plot <- function(GOterm_df,
                         text_size = 12) {
 
     df_filt <- GOterm_df %>% filter(Enrichment.FDR < pval_threshold, Fold.Enrichment > fold_threshold)
+    if(nrow(df_filt) < 1) {
+        warning("No GO terms meet significance thresholds. Try lowering the values of pval_threshold or fold_threshold." )
+        }
     df_filt$Pathway <- factor(df_filt$Pathway, levels = df_filt$Pathway[order(df_filt$Fold.Enrichment)])
 
     if(!is.null(max_rows)) {
-        df_filt <- df_filt %>% slice(1:max_rows)
+        df_filt <- df_filt %>% dplyr::slice(1:max_rows)
     }
     
     plot <- ggplot(df_filt, aes(x = Fold.Enrichment, y = Pathway)) +
